@@ -9,11 +9,9 @@ configurable string openaiToken = ?;
 string TRAIN_API_URL = "http://34.125.67.16:8080/train-operations/v1";
 
 type TrainInfoRequest record {|
-    # The email address of the recipient.
+    # The email address of the recipient. E.g "test11idotest@gmail.com"
     string recipientEmail;
-    # The question to answer regarding the train schedules. e.g. "What are the traings leaving from London in the morning?"
-    string query;
-    # The departure station.
+    # The departure station. E.g London
     string 'from?;
     # The arrival station.
     string to?;
@@ -42,20 +40,10 @@ isolated service / on new http:Listener(9090) {
 
         TrainInfoResponse[] trainInfo = check trainApi->/schedules(params = {"from": 'from, "to": to});
 
-        text:CreateCompletionResponse generatedMail = check openaiTextApi->/completions.post({
-            model: "text-davinci-003",
-            prompt: generatePrompt(payload.query, trainInfo),
-            max_tokens: 256
-        });
-
-        string? email = generatedMail.choices[0].text;
-        if email is () {
-            return "Failed to generate the email";
-        }
-
-        log:printInfo("Generated email: " + email.toString());
-
-        record {|string subject; string messageBody;|} emailRecord = check email.fromJsonStringWithType();
+        record {|string subject; string messageBody;|} emailRecord = {
+            subject: "Train Schedules",
+            messageBody: generateMail(trainInfo)
+        };
 
         gmail:MessageRequest messageRequest = {
             recipient: payload.recipientEmail,
@@ -71,17 +59,12 @@ isolated service / on new http:Listener(9090) {
     }
 }
 
-isolated function generatePrompt(string question, TrainInfoResponse[] trainInfo) returns string {
-    return string `Generate an email with the following format to answer the given question. Use the following train schedules to answer the question.
+isolated function generateMail(TrainInfoResponse[] trainInfo) returns string {
+    return string `Hi,
+Here are the train schedules for your journey.
 
-${trainInfo.toString()}
+${<string>from TrainInfoResponse trainSchedule in trainInfo
+        select string `- Train ${trainSchedule.trainType} from ${trainSchedule.'from} to ${trainSchedule.to} will start at ${trainSchedule.startTime} and will end at ${trainSchedule.endTime}.${"\n"}`}
 
-Always reply with an JSON object with the following format:
-{
-    "subject": "Subject of the email",
-    "messageBody": "Body of the email with the requested information"
-}
-
-Question: ${question}
-JSON email object:`;
+Please let me know if you need any further assistance.`;
 }

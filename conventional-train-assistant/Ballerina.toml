@@ -1,0 +1,8 @@
+[package]
+org = "nadheesh"
+name = "ai_usecases"
+version = "0.1.0"
+distribution = "2201.5.0"
+
+[build-options]
+observabilityIncluded = true
