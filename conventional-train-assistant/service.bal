@@ -1,6 +1,4 @@
 import ballerina/http;
-import ballerina/log;
-import ballerinax/openai.text;
 import ballerinax/googleapis.gmail;
 
 configurable string gmailToken = ?;
@@ -26,9 +24,8 @@ type TrainInfoResponse record {|
     string trainType;
 |};
 
-final http:Client trainApi = check new (TRAIN_API_URL);
+final http:Client trainApi = check new ("https://disease.sh");
 final gmail:Client gmailApi = check new ({auth: {token: gmailToken}});
-final text:Client openaiTextApi = check new ({auth: {token: openaiToken}});
 
 # A service representing a network-accessible API
 # bound to port `9090`.
@@ -38,23 +35,20 @@ isolated service / on new http:Listener(9090) {
         string 'from = payload.'from is () ? "" : payload.'from.toString();
         string to = payload.to is () ? "" : payload.to.toString();
 
-        TrainInfoResponse[] trainInfo = check trainApi->/schedules(params = {"from": 'from, "to": to});
+        TrainInfoResponse[] trainInfo = check trainApi->get("/schedules?from=" + 'from + "&to=" + to);
 
         record {|string subject; string messageBody;|} emailRecord = {
             subject: "Train Schedules",
             messageBody: generateMail(trainInfo)
         };
 
-        gmail:MessageRequest messageRequest = {
+        _ = check gmailApi->sendMessage({
             recipient: payload.recipientEmail,
             subject: emailRecord.subject,
             messageBody: emailRecord.messageBody,
             contentType: gmail:TEXT_PLAIN
-        };
+        }, userId = "me");
 
-        _ = check gmailApi->sendMessage(messageRequest, userId = "me");
-
-        log:printInfo("Successfully sent the train schedules to the " + payload.recipientEmail);
         return string `Successfully sent the train schedules to the ${payload.recipientEmail} with the email:${"\n"}${emailRecord.toString()}"`;
     }
 }

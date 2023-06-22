@@ -1,5 +1,4 @@
 import ballerina/http;
-import ballerina/log;
 import ballerinax/openai.text;
 import ballerinax/googleapis.gmail;
 
@@ -54,21 +53,17 @@ isolated service / on new http:Listener(9090) {
             return "Failed to generate the email";
         }
 
-        log:printInfo("Generated email: " + email.toString());
         // --------------------------------------------------------------------------------
 
         record {|string subject; string messageBody;|} emailRecord = check email.fromJsonStringWithType();
 
-        gmail:MessageRequest messageRequest = {
+        _ = check gmailApi->sendMessage({
             recipient: payload.recipientEmail,
             subject: emailRecord.subject,
             messageBody: emailRecord.messageBody,
             contentType: gmail:TEXT_PLAIN
-        };
+        });
 
-        _ = check gmailApi->sendMessage(messageRequest, userId = "me");
-
-        log:printInfo("Successfully sent the train schedules to the " + payload.recipientEmail);
         return string `Successfully sent the train schedules to the ${payload.recipientEmail} with the email:${"\n"}${emailRecord.toString()}"`;
     }
 }
@@ -81,7 +76,7 @@ ${trainInfo.toString()}
 Always reply with an JSON object with the following format:
 {
     "subject": "Subject of the email",
-    "messageBody": "Body of the email with the requested information"
+    "messageBody": "Body of the email with the requested information. Start with Hi {name}, and ends with "If you have any further questions or need additional assistance, please feel free to let us know"."
 }
 
 Question: ${question}
