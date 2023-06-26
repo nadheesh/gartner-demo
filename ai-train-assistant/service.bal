@@ -10,7 +10,7 @@ string TRAIN_API_URL = "http://34.125.67.16:8080/train-operations/v1";
 type TrainInfoRequest record {|
     # The email address of the recipient.
     string recipientEmail;
-    # The question to answer regarding the train schedules. e.g. "What are the traings leaving from London in the morning?"
+    # The question to answer regarding the train schedules. e.g. "What are the trains departing from London in the morning?"
     string query;
     # The departure station.
     string 'from?;
@@ -45,7 +45,7 @@ isolated service / on new http:Listener(9090) {
         text:CreateCompletionResponse generatedMail = check openaiTextApi->/completions.post({
             model: "text-davinci-003",
             prompt: generatePrompt(payload.query, trainInfo),
-            max_tokens: 256
+            max_tokens: 2000
         });
 
         string? email = generatedMail.choices[0].text;
@@ -62,22 +62,23 @@ isolated service / on new http:Listener(9090) {
             subject: emailRecord.subject,
             messageBody: emailRecord.messageBody,
             contentType: gmail:TEXT_PLAIN
-        });
+        }, userId = "me");
 
-        return string `Successfully sent the train schedules to the ${payload.recipientEmail} with the email:${"\n"}${emailRecord.toString()}"`;
+        return string `Successfully sent the train schedules to the ${payload.recipientEmail}`;
     }
 }
 
 isolated function generatePrompt(string question, TrainInfoResponse[] trainInfo) returns string {
     return string `Generate an email with the following format to answer the given question. Use the following train schedules to answer the question.
-
 ${trainInfo.toString()}
 
 Always reply with an JSON object with the following format:
 {
     "subject": "Subject of the email",
-    "messageBody": "Body of the email with the requested information. Start with Hi {name}, and ends with "If you have any further questions or need additional assistance, please feel free to let us know"."
+    "messageBody": "Body of the email with the requested information."
 }
+
+Reminder to start with Hi {take name from email}, and ends with "If you have any further questions or need additional assistance, please feel free to let us know"
 
 Question: ${question}
 JSON email object:`;

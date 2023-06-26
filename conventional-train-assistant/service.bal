@@ -7,7 +7,7 @@ configurable string openaiToken = ?;
 string TRAIN_API_URL = "http://34.125.67.16:8080/train-operations/v1";
 
 type TrainInfoRequest record {|
-    # The email address of the recipient. E.g "test11idotest@gmail.com"
+    # The email address of the recipient. E.g. "john@gmail".
     string recipientEmail;
     # The departure station. E.g London
     string 'from?;
@@ -37,6 +37,10 @@ isolated service / on new http:Listener(9090) {
 
         TrainInfoResponse[] trainInfo = check trainApi->get("/schedules?from=" + 'from + "&to=" + to);
 
+        if trainInfo.length() == 0 {
+            return string `No train schedules found for the journey from ${'from} to ${to}`;
+        }
+        
         record {|string subject; string messageBody;|} emailRecord = {
             subject: "Train Schedules",
             messageBody: generateMail(trainInfo)
